@@ -1,15 +1,142 @@
-name: Hello World
+name: Advanced Hello World
 
+# --------------------------------------------------
+# 1. WORKFLOW TRIGGERS
+# --------------------------------------------------
 on:
   push:
     branches:
       - main
-  workflow_dispatch:
+      - develop
 
+  pull_request:
+    branches:
+      - main
+
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Choose environment"
+        required: true
+        default: "dev"
+        type: choice
+        options:
+          - dev
+          - test
+          - prod
+
+# --------------------------------------------------
+# 2. GLOBAL ENVIRONMENT VARIABLES
+# --------------------------------------------------
+env:
+  APPLICATION_NAME: "HelloWorldApp"
+  VERSION: "1.0.0"
+
+# --------------------------------------------------
+# 3. JOBS
+# --------------------------------------------------
 jobs:
-  hello:
+
+  # ==================================================
+  # JOB 1 - BUILD
+  # ==================================================
+  build:
+    name: Build Application
     runs-on: ubuntu-latest
 
     steps:
-      - name: Say Hello
-        run: echo "Hello World from GitHub Actions!"
+
+      # Checkout source code
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      # Display system information
+      - name: Display Runner Information
+        run: |
+          echo "Operating System: $RUNNER_OS"
+          echo "Runner: $RUNNER_NAME"
+          echo "Application: $APPLICATION_NAME"
+          echo "Version: $VERSION"
+
+      # Create a simple application file
+      - name: Create Application
+        run: |
+          mkdir -p build
+
+          echo "Hello World!" > build/hello.txt
+          echo "Application: $APPLICATION_NAME" >> build/hello.txt
+          echo "Version: $VERSION" >> build/hello.txt
+          echo "Built by GitHub Actions" >> build/hello.txt
+
+          cat build/hello.txt
+
+      # Upload build output
+      - name: Upload Build Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: hello-world-build
+          path: build/
+
+
+  # ==================================================
+  # JOB 2 - TEST
+  # ==================================================
+  test:
+    name: Test Application
+    runs-on: ubuntu-latest
+
+    needs: build
+
+    steps:
+
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Run Tests
+        run: |
+          echo "Running application tests..."
+          echo "Test 1: Application exists"
+          echo "Test 2: Configuration valid"
+          echo "Test 3: Version valid"
+
+          echo "All tests PASSED"
+
+
+  # ==================================================
+  # JOB 3 - DEPLOY
+  # ==================================================
+  deploy:
+    name: Deploy Application
+    runs-on: ubuntu-latest
+
+    needs:
+      - build
+      - test
+
+    # Deploy only when push is made to main
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    environment: production
+
+    steps:
+
+      - name: Download Build Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: hello-world-build
+          path: build/
+
+      - name: Display Artifact
+        run: |
+          echo "Application ready for deployment:"
+          cat build/hello.txt
+
+      - name: Deploy
+        run: |
+          echo "--------------------------------"
+          echo "Deploying $APPLICATION_NAME"
+          echo "Version: $VERSION"
+          echo "Environment: production"
+          echo "--------------------------------"
+
+          echo "Deployment successful!"
